@@ -434,13 +434,10 @@ void KVStore::applyPreHandledSnapshot(const RegionPtrWithSnapshotFiles & new_reg
     LOG_FMT_INFO(log, "{} apply snapshot success", new_region->toString(false));
 }
 
-//template void KVStore::applyPreHandledSnapshot<RegionPtrWithSnapshotFiles>(const RegionPtrWithSnapshotFiles &, TMTContext &);
-
 template void KVStore::checkAndApplySnapshot<RegionPtrWithBlock>(const RegionPtrWithBlock &, TMTContext &);
 template void KVStore::checkAndApplySnapshot<RegionPtrWithSnapshotFiles>(const RegionPtrWithSnapshotFiles &, TMTContext &);
 template void KVStore::onSnapshot<RegionPtrWithBlock>(const RegionPtrWithBlock &, RegionPtr, UInt64, TMTContext &);
 template void KVStore::onSnapshot<RegionPtrWithSnapshotFiles>(const RegionPtrWithSnapshotFiles &, RegionPtr, UInt64, TMTContext &);
-
 
 static const metapb::Peer & findPeer(const metapb::Region & region, UInt64 peer_id)
 {

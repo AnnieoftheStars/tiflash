@@ -1386,7 +1386,15 @@ try
         return rows;
     };
 
+    UNUSED(read_rows);
+
+    auto log = Logger::get("Test");
+
     write_100_rows(segment);
+    write_100_rows(segment);
+
+    LOG_FMT_INFO(log, "MemTable ColumnFiles {}", segment->getDelta()->getMemTableSet()->getColumnFileCount());
+    LOG_FMT_INFO(log, "Persisted ColumnFiles {}", segment->getDelta()->getPersistedFileSet()->getColumnFileCount());
 
     // Test split
     SegmentPtr other_segment;
@@ -1395,9 +1403,21 @@ try
         auto segment_snap = segment->createSnapshot(dmContext(), true, CurrentMetrics::DT_SnapshotOfSegmentSplit);
         ASSERT_FALSE(!segment_snap);
 
+        LOG_FMT_INFO(log, "Segment snapshot created");
+
+        write_100_rows(segment);
+        write_100_rows(segment);
         write_100_rows(segment);
 
+        LOG_FMT_INFO(log, "MemTable ColumnFiles {}", segment->getDelta()->getMemTableSet()->getColumnFileCount());
+        LOG_FMT_INFO(log, "Persisted ColumnFiles {}", segment->getDelta()->getPersistedFileSet()->getColumnFileCount());
+
         auto split_info = segment->prepareSplit(dmContext(), tableColumns(), segment_snap, wbs);
+
+        auto ptr = segment->mergeDelta(dmContext(), tableColumns());
+        LOG_FMT_INFO(log, "Merge delta finished, ptr == null is {}", ptr == nullptr);
+        LOG_FMT_INFO(log, "MemTable ColumnFiles {}", segment->getDelta()->getMemTableSet()->getColumnFileCount());
+        LOG_FMT_INFO(log, "Persisted ColumnFiles {}", segment->getDelta()->getPersistedFileSet()->getColumnFileCount());
 
         wbs.writeLogAndData();
         split_info->my_stable->enableDMFilesGC();
@@ -1408,44 +1428,44 @@ try
 
         wbs.writeAll();
     }
+    //
+    //    {
+    //        SegmentPtr new_segment_1 = Segment::restoreSegment(dmContext(), segment->segmentId());
+    //        SegmentPtr new_segment_2 = Segment::restoreSegment(dmContext(), other_segment->segmentId());
+    //        auto rows1 = read_rows(new_segment_1);
+    //        auto rows2 = read_rows(new_segment_2);
+    //        ASSERT_EQ(rows1 + rows2, (size_t)200);
+    //    }
 
-    {
-        SegmentPtr new_segment_1 = Segment::restoreSegment(dmContext(), segment->segmentId());
-        SegmentPtr new_segment_2 = Segment::restoreSegment(dmContext(), other_segment->segmentId());
-        auto rows1 = read_rows(new_segment_1);
-        auto rows2 = read_rows(new_segment_2);
-        ASSERT_EQ(rows1 + rows2, (size_t)200);
-    }
-
-    // Test merge
-    {
-        WriteBatches wbs(dmContext().storage_pool);
-
-        auto left_snap = segment->createSnapshot(dmContext(), true, CurrentMetrics::DT_SnapshotOfSegmentMerge);
-        auto right_snap = other_segment->createSnapshot(dmContext(), true, CurrentMetrics::DT_SnapshotOfSegmentMerge);
-        ASSERT_FALSE(!left_snap || !right_snap);
-
-        write_100_rows(other_segment);
-        segment->flushCache(dmContext());
-
-        auto merged_stable = Segment::prepareMerge(dmContext(), tableColumns(), segment, left_snap, other_segment, right_snap, wbs);
-
-        wbs.writeLogAndData();
-        merged_stable->enableDMFilesGC();
-
-        auto left_lock = segment->mustGetUpdateLock();
-        auto right_lock = other_segment->mustGetUpdateLock();
-
-        segment = Segment::applyMerge(dmContext(), segment, left_snap, other_segment, right_snap, wbs, merged_stable);
-
-        wbs.writeAll();
-    }
-
-    {
-        SegmentPtr new_segment = Segment::restoreSegment(dmContext(), segment->segmentId());
-        auto rows = read_rows(new_segment);
-        ASSERT_EQ(rows, (size_t)300);
-    }
+    //    // Test merge
+    //    {
+    //        WriteBatches wbs(dmContext().storage_pool);
+    //
+    //        auto left_snap = segment->createSnapshot(dmContext(), true, CurrentMetrics::DT_SnapshotOfSegmentMerge);
+    //        auto right_snap = other_segment->createSnapshot(dmContext(), true, CurrentMetrics::DT_SnapshotOfSegmentMerge);
+    //        ASSERT_FALSE(!left_snap || !right_snap);
+    //
+    //        write_100_rows(other_segment);
+    //        segment->flushCache(dmContext());
+    //
+    //        auto merged_stable = Segment::prepareMerge(dmContext(), tableColumns(), segment, left_snap, other_segment, right_snap, wbs);
+    //
+    //        wbs.writeLogAndData();
+    //        merged_stable->enableDMFilesGC();
+    //
+    //        auto left_lock = segment->mustGetUpdateLock();
+    //        auto right_lock = other_segment->mustGetUpdateLock();
+    //
+    //        segment = Segment::applyMerge(dmContext(), segment, left_snap, other_segment, right_snap, wbs, merged_stable);
+    //
+    //        wbs.writeAll();
+    //    }
+    //
+    //    {
+    //        SegmentPtr new_segment = Segment::restoreSegment(dmContext(), segment->segmentId());
+    //        auto rows = read_rows(new_segment);
+    //        ASSERT_EQ(rows, (size_t)300);
+    //    }
 }
 CATCH
 

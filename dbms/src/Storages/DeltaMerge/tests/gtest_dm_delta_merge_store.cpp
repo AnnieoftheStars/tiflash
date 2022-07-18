@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <Common/CurrentMetrics.h>
 #include <Common/Exception.h>
 #include <Common/FailPoint.h>
 #include <Common/Logger.h>
@@ -38,6 +39,21 @@
 #include <memory>
 #include <vector>
 
+
+namespace CurrentMetrics
+{
+extern const Metric DT_DeltaCompact;
+extern const Metric DT_DeltaFlush;
+extern const Metric DT_PlaceIndexUpdate;
+extern const Metric DT_SnapshotOfRead;
+extern const Metric DT_SnapshotOfReadRaw;
+extern const Metric DT_SnapshotOfSegmentSplit;
+extern const Metric DT_SnapshotOfSegmentMerge;
+extern const Metric DT_SnapshotOfDeltaMerge;
+extern const Metric DT_SnapshotOfPlaceIndex;
+} // namespace CurrentMetrics
+
+
 namespace DB
 {
 namespace FailPoints
@@ -51,6 +67,7 @@ extern const char segment_merge_after_ingest_packs[];
 extern const char force_set_segment_physical_split[];
 extern const char force_set_page_file_write_errno[];
 } // namespace FailPoints
+
 
 namespace DM
 {
@@ -3624,6 +3641,10 @@ INSTANTIATE_TEST_CASE_P(
 TEST_P(DeltaMergeStoreMergeDeltaBySegmentTest, BoundaryKey)
 try
 {
+    //    auto dm_context = store->newDMContext(*db_context, db_context->getSettingsRef(),
+    //                                          /*tracing_id*/ "abc");
+    //    auto snap = store->segments.begin()->second->createSnapshot(*dm_context, true, CurrentMetrics::DT_SnapshotOfDeltaMerge);
+
     {
         // Write data to first 3 segments.
         auto newly_written_rows = helper->rows_by_segments[0] + helper->rows_by_segments[1] + helper->rows_by_segments[2];

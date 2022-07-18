@@ -884,6 +884,8 @@ void DeltaMergeStore::ingestFiles(
             }
             else
             {
+                // The segment is abandoned
+                // Other threads could already updated the instance. Like split/merge, merge delta.
                 wbs.rollbackWrittenLogAndData();
             }
         }
@@ -1097,6 +1099,10 @@ std::optional<DM::RowKeyRange> DeltaMergeStore::mergeDeltaBySegment(const Contex
             }
             return new_segment->getRowKeyRange();
         }
+        else
+        {
+
+        }
     }
 }
 
@@ -1109,6 +1115,7 @@ void DeltaMergeStore::compact(const Context & db_context, const RowKeyRange & ra
     {
         RowKeyRange segment_range;
         // Keep trying until succeeded.
+        // WARNING: This is a spin loop retry.
         while (true)
         {
             SegmentPtr segment;
