@@ -473,6 +473,14 @@ private:
 
     bool handleBackgroundTask(bool heavy);
 
+    /// Unlike we ingest files to the delta layer in normal path, for the fast path we will try to
+    /// ingest files to the stable layer directly if there is no overlap with the delta layer.
+    /// Returns whether the fast path is actually entered.
+    /// This function always clears the range.
+    bool ingestFilesWithClearRangeAndFastPath(const DMContextPtr & dm_context,
+                                              const RowKeyRange & range,
+                                              const PageIds & file_ids);
+
     // isSegmentValid should be protected by lock on `read_write_mutex`
     inline bool isSegmentValid(std::shared_lock<std::shared_mutex> &, const SegmentPtr & segment)
     {

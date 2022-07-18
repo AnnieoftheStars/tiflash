@@ -720,6 +720,11 @@ std::tuple<String, PageId> DeltaMergeStore::preAllocateIngestFile()
 
 void DeltaMergeStore::preIngestFile(const String & parent_path, const PageId file_id, size_t file_size)
 {
+    LOG_FMT_INFO(log, "WENXUAN --- DeltaMergeStore::preIngestFile start, parent_path = {}, file_id = {}", parent_path, file_id);
+    SCOPE_EXIT({
+        LOG_FMT_INFO(log, "WENXUAN --- DeltaMergeStore::preIngestFile finished, parent_path = {}, file_id = {}", parent_path, file_id);
+    });
+
     if (shutdown_called.load(std::memory_order_relaxed))
         return;
 
@@ -727,18 +732,38 @@ void DeltaMergeStore::preIngestFile(const String & parent_path, const PageId fil
     delegator.addDTFile(file_id, file_size, parent_path);
 }
 
+//bool DeltaMergeStore::ingestFilesWithClearRangeAndFastPath(const DMContextPtr & dm_context,
+//                                                           const RowKeyRange & range,
+//                                                           const PageIds & file_ids)
+//{
+//}
+
 void DeltaMergeStore::ingestFiles(
     const DMContextPtr & dm_context,
     const RowKeyRange & range,
     const PageIds & file_ids,
     bool clear_data_in_range)
 {
+    LOG_FMT_INFO(log, "WENXUAN --- DeltaMergeStore::ingestFiles start, range = {}, file_ids = {}, clear = {}", range.toDebugString(), file_ids.size(), clear_data_in_range);
+    for (const auto & id : file_ids)
+    {
+        LOG_FMT_INFO(log, "WENXUAN --- DeltaMergeStore::ingestFiles file_id: {}", id);
+    }
+    SCOPE_EXIT({
+        LOG_FMT_INFO(log, "WENXUAN --- DeltaMergeStore::ingestFiles finished, range = {}, file_ids = {}, clear = {}", range.toDebugString(), file_ids.size(), clear_data_in_range);
+    });
+
     if (unlikely(shutdown_called.load(std::memory_order_relaxed)))
     {
         const auto msg = fmt::format("try to ingest files into a shutdown table: {}.{}", db_name, table_name);
         LOG_FMT_WARNING(log, "{}", msg);
         throw Exception(msg);
     }
+
+    //    if (clear_data_in_range && ingestFilesWithClearRangeAndFastPath(dm_context, range, file_ids))
+    //    {
+    //        return;
+    //    }
 
     EventRecorder write_block_recorder(ProfileEvents::DMWriteFile, ProfileEvents::DMWriteFileNS);
 

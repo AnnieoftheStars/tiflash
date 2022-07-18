@@ -62,11 +62,24 @@ enum class FileConvertJobType
 class SSTFilesToDTFilesOutputStream : private boost::noncopyable
 {
 public:
+    /**
+     * When `split_after_rows` or `split_after_size` are > 0, multiple DTFiles will be produced.
+     * When `0` is specified for both parameters, only one DTFile will be produced.
+     *
+     * As the stream is processed by blocks, each DTFile is not ensured truncated at the specified
+     * rows or size: it is possible that one DTFile is significantly large, if a large Block
+     * is produced by the `child`.
+     *
+     * @param split_after_rows_ Split for a new DTFile when reaching specified rows.
+     * @param split_after_size_ Split for a new DTFile when reaching specified bytes.
+     */
     SSTFilesToDTFilesOutputStream(BoundedSSTFilesToBlockInputStreamPtr child_,
                                   StorageDeltaMergePtr storage_,
                                   DecodingStorageSchemaSnapshotConstPtr schema_snap_,
                                   TiDB::SnapshotApplyMethod method_,
                                   FileConvertJobType job_type_,
+                                  UInt64 split_after_rows_,
+                                  UInt64 split_after_size_,
                                   TMTContext & tmt_);
     ~SSTFilesToDTFilesOutputStream();
 
@@ -81,9 +94,7 @@ public:
 
 private:
     bool newDTFileStream();
-
-    // Stop the process for decoding committed data into DTFiles
-    void stop();
+    bool finalizeDTFileStream();
 
 private:
     BoundedSSTFilesToBlockInputStreamPtr child;
@@ -91,6 +102,8 @@ private:
     DecodingStorageSchemaSnapshotConstPtr schema_snap;
     const TiDB::SnapshotApplyMethod method;
     const FileConvertJobType job_type;
+    const UInt64 split_after_rows;
+    const UInt64 split_after_size;
     TMTContext & tmt;
     Poco::Logger * log;
 
@@ -98,8 +111,18 @@ private:
 
     std::vector<DMFilePtr> ingest_files;
 
-    size_t schema_sync_trigger_count = 0;
-    size_t commit_rows = 0;
+    /**
+     * How many rows has been committed to the current DTFile.
+     */
+    size_t committed_rows_this_dt_file = 0;
+    size_t committed_bytes_this_dt_file = 0;
+
+    /**
+     * How many rows has been committed so far.
+     */
+    size_t total_committed_rows = 0;
+    size_t total_committed_bytes = 0;
+
     Stopwatch watch;
 };
 

@@ -371,26 +371,6 @@ RawCppPtr PreHandleSnapshot(
     }
 }
 
-template <typename PreHandledSnapshot>
-void ApplyPreHandledSnapshot(EngineStoreServerWrap * server, PreHandledSnapshot * snap)
-{
-    static_assert(std::is_same_v<PreHandledSnapshot, PreHandledSnapshotWithFiles>, "Unknown pre-handled snapshot type");
-
-    try
-    {
-        auto & kvstore = server->tmt->getKVStore();
-        if constexpr (std::is_same_v<PreHandledSnapshot, PreHandledSnapshotWithFiles>)
-        {
-            kvstore->handlePreApplySnapshot(RegionPtrWithSnapshotFiles{snap->region, std::move(snap->ingest_ids)}, *server->tmt);
-        }
-    }
-    catch (...)
-    {
-        tryLogCurrentException(__PRETTY_FUNCTION__);
-        exit(-1);
-    }
-}
-
 void ApplyPreHandledSnapshot(EngineStoreServerWrap * server, RawVoidPtr res, RawCppPtrType type)
 {
     switch (static_cast<RawCppPtrTypeImpl>(type))
@@ -398,7 +378,16 @@ void ApplyPreHandledSnapshot(EngineStoreServerWrap * server, RawVoidPtr res, Raw
     case RawCppPtrTypeImpl::PreHandledSnapshotWithFiles:
     {
         auto * snap = reinterpret_cast<PreHandledSnapshotWithFiles *>(res);
-        ApplyPreHandledSnapshot(server, snap);
+        try
+        {
+            auto & kvstore = server->tmt->getKVStore();
+            kvstore->applyPreHandledSnapshot(RegionPtrWithSnapshotFiles{snap->region, std::move(snap->ingest_ids)}, *server->tmt);
+        }
+        catch (...)
+        {
+            tryLogCurrentException(__PRETTY_FUNCTION__);
+            exit(-1);
+        }
         break;
     }
     default:

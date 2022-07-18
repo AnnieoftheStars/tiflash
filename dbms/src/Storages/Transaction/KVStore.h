@@ -18,6 +18,8 @@
 #include <Storages/Transaction/RegionManager.h>
 #include <Storages/Transaction/StorageEngineType.h>
 
+#include "RegionTable.h"
+
 namespace TiDB
 {
 struct TableInfo;
@@ -108,16 +110,24 @@ public:
         TMTContext & tmt);
     EngineStoreApplyRes handleWriteRaftCmd(const WriteCmdsView & cmds, UInt64 region_id, UInt64 index, UInt64 term, TMTContext & tmt);
 
+    /// A handy shortcut for { preHandleSnapshotToFiles + applyPreHandledSnapshot }.
+    /// This function is no longer used in the Proxy path and is only used in tests.
     void handleApplySnapshot(metapb::Region && region, uint64_t peer_id, const SSTViewVec, uint64_t index, uint64_t term, TMTContext & tmt);
 
-    std::vector<UInt64> /*   */ preHandleSnapshotToFiles(
+    /// The snapshot applying process is separated into two steps: PreHandle and ApplyPreHandled.
+    /// The PreHandle step (this function) is time consuming and should be parallelized.
+    ///   During this step, the snapshot files (in row format) are transformed into DTFiles (in column format).
+    /// The ApplyPreHandled step is relatively lightweight and must be performed in serial.
+    std::vector<UInt64> preHandleSnapshotToFiles(
         RegionPtr new_region,
         const SSTViewVec,
         uint64_t index,
         uint64_t term,
         TMTContext & tmt);
-    template <typename RegionPtrWrap>
-    void handlePreApplySnapshot(const RegionPtrWrap &, TMTContext & tmt);
+
+    /// Apply DTFiles that is produced by `preHandleSnapshotToFiles` previously. See `preHandleSnapshotToFiles` for details.
+    //    template <typename RegionPtrWrap>
+    void applyPreHandledSnapshot(const RegionPtrWithSnapshotFiles &, TMTContext & tmt);
 
     void handleDestroy(UInt64 region_id, TMTContext & tmt);
     void setRegionCompactLogConfig(UInt64, UInt64, UInt64);
@@ -190,6 +200,11 @@ private:
         DM::FileConvertJobType,
         TMTContext & tmt);
 
+    /**
+     * Apply the snapshot to the region. When applying snapshot to an existing region, the region
+     * will be marked as "Applying" which will effectively reject new requests until the applying
+     * process is finished.
+     */
     template <typename RegionPtrWrap>
     void checkAndApplySnapshot(const RegionPtrWrap &, TMTContext & tmt);
     template <typename RegionPtrWrap>
