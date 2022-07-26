@@ -3629,8 +3629,8 @@ INSTANTIATE_TEST_CASE_P(
     ByPsVerAndPkType,
     DeltaMergeStoreMergeDeltaBySegmentTest,
     ::testing::Combine(
-        ::testing::Values(2, 3),
-        ::testing::Values(DMTestEnv::PkType::HiddenTiDBRowID, DMTestEnv::PkType::CommonHandle, DMTestEnv::PkType::PkIsHandleInt64)),
+        ::testing::Values(/*2, */ 4),
+        ::testing::Values(/*DMTestEnv::PkType::HiddenTiDBRowID, DMTestEnv::PkType::CommonHandle, */ DMTestEnv::PkType::PkIsHandleInt64)),
     [](const testing::TestParamInfo<std::tuple<UInt64 /* PageStorage version */, DMTestEnv::PkType>> & info) {
         const auto [ps_ver, pk_type] = info.param;
         return fmt::format("PsV{}_{}", ps_ver, DMTestEnv::PkTypeToString(pk_type));
@@ -3779,6 +3779,95 @@ try
         helper->expected_delta_rows[1] = 0;
         helper->verifyExpectedRowsForAllSegments();
     }
+}
+CATCH
+
+
+// The given key is not the boundary of the segment.
+TEST_P(DeltaMergeStoreMergeDeltaBySegmentTest, MyTest)
+try
+{
+    {
+        store->mergeDeltaAll(*db_context);
+    }
+    {
+        // Write data to first 3 segments.
+        auto newly_written_rows = helper->rows_by_segments[0] + helper->rows_by_segments[1] + helper->rows_by_segments[2];
+        Block block = DMTestEnv::prepareSimpleWriteBlock(0, newly_written_rows, false, pk_type, 5 /* new tso */);
+        store->write(*db_context, db_context->getSettingsRef(), block);
+
+        //        helper->expected_delta_rows[0] += helper->rows_by_segments[0];
+        //        helper->expected_delta_rows[1] += helper->rows_by_segments[1];
+        //        helper->expected_delta_rows[2] += helper->rows_by_segments[2];
+        //        helper->verifyExpectedRowsForAllSegments();
+    }
+    {
+        // Split segment 0.
+        auto dm_context = store->newDMContext(*db_context, db_context->getSettingsRef());
+        store->segmentSplit(*dm_context, store->segments.begin()->second, true);
+    }
+    {
+        auto * log = &Poco::Logger::get(GET_GTEST_FULL_NAME);
+        const auto segment = store->segments.begin()->second;
+        //        const auto segment0range = ->getRowKeyRange();
+        const auto & columns = store->getTableColumns();
+        BlockInputStreamPtr in = store->readRaw(*db_context,
+                                                db_context->getSettingsRef(),
+                                                columns,
+                                                1,
+                                                {segment->segmentId()},
+                                                -10000)[0];
+
+        LOG_FMT_INFO(log, "Segmemt 1 Range = {}", segment->getRowKeyRange().toDebugString());
+
+        in->readPrefix();
+        while (Block block = in->read())
+        {
+            LOG_FMT_INFO(log, "BLOCK BEGIN");
+            for (auto && iter : block)
+            {
+                auto c = iter.column;
+                for (Int64 i = 0; i < Int64(c->size()); ++i)
+                {
+                    LOG_FMT_INFO(log, "{}: {}", iter.name, (*c)[i].toString());
+                }
+            }
+            LOG_FMT_INFO(log, "BLOCK END");
+        }
+        in->readSuffix();
+    }
+    {
+        auto * log = &Poco::Logger::get(GET_GTEST_FULL_NAME);
+        const auto segment = std::next(store->segments.begin())->second;
+        //        const auto segment0range = ->getRowKeyRange();
+        const auto & columns = store->getTableColumns();
+        BlockInputStreamPtr in = store->readRaw(*db_context,
+                                                db_context->getSettingsRef(),
+                                                columns,
+                                                1,
+                                                {segment->segmentId()},
+                                                -10000)[0];
+
+        LOG_FMT_INFO(log, "Segmemt 1 Range = {}", segment->getRowKeyRange().toDebugString());
+
+        in->readPrefix();
+        while (Block block = in->read())
+        {
+            LOG_FMT_INFO(log, "BLOCK BEGIN");
+            for (auto && iter : block)
+            {
+                auto c = iter.column;
+                for (Int64 i = 0; i < Int64(c->size()); ++i)
+                {
+                    LOG_FMT_INFO(log, "{}: {}", iter.name, (*c)[i].toString());
+                }
+            }
+            LOG_FMT_INFO(log, "BLOCK END");
+        }
+        in->readSuffix();
+    }
+
+    FAIL();
 }
 CATCH
 

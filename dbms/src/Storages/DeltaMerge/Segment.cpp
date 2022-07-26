@@ -865,30 +865,30 @@ std::optional<Segment::SplitInfo> Segment::prepareSplit(DMContext & dm_context,
                                                         const SegmentSnapshotPtr & segment_snap,
                                                         WriteBatches & wbs) const
 {
-    if (!dm_context.enable_logical_split //
-        || segment_snap->stable->getPacks() <= 3 //
-        || segment_snap->delta->getRows() > segment_snap->stable->getRows())
+    //    if (!dm_context.enable_logical_split //
+    //        || segment_snap->stable->getPacks() <= 3 //
+    //        || segment_snap->delta->getRows() > segment_snap->stable->getRows())
+    //    {
+    //        return prepareSplitPhysical(dm_context, schema_snap, segment_snap, wbs);
+    //    }
+    //    else
+    //    {
+    auto split_point_opt = getSplitPointFast(dm_context, segment_snap->stable);
+
+    bool bad_split_point = !split_point_opt.has_value() || !rowkey_range.check(split_point_opt->toRowKeyValueRef())
+        || compare(split_point_opt->toRowKeyValueRef(), rowkey_range.getStart()) == 0;
+    if (bad_split_point)
     {
+        LOG_FMT_INFO(
+            log,
+            "Got bad split point [{}] for segment {}, fall back to split physical.",
+            (split_point_opt.has_value() ? split_point_opt->toRowKeyValueRef().toDebugString() : "no value"),
+            info());
         return prepareSplitPhysical(dm_context, schema_snap, segment_snap, wbs);
     }
     else
-    {
-        auto split_point_opt = getSplitPointFast(dm_context, segment_snap->stable);
-
-        bool bad_split_point = !split_point_opt.has_value() || !rowkey_range.check(split_point_opt->toRowKeyValueRef())
-            || compare(split_point_opt->toRowKeyValueRef(), rowkey_range.getStart()) == 0;
-        if (bad_split_point)
-        {
-            LOG_FMT_INFO(
-                log,
-                "Got bad split point [{}] for segment {}, fall back to split physical.",
-                (split_point_opt.has_value() ? split_point_opt->toRowKeyValueRef().toDebugString() : "no value"),
-                info());
-            return prepareSplitPhysical(dm_context, schema_snap, segment_snap, wbs);
-        }
-        else
-            return prepareSplitLogical(dm_context, schema_snap, segment_snap, split_point_opt.value(), wbs);
-    }
+        return prepareSplitLogical(dm_context, schema_snap, segment_snap, split_point_opt.value(), wbs);
+    //    }
 }
 
 std::optional<Segment::SplitInfo> Segment::prepareSplitLogical(DMContext & dm_context,
