@@ -66,6 +66,8 @@ struct DecodingStorageSchemaSnapshot
 
     bool pk_is_handle;
     bool is_common_handle;
+    size_t rowkey_column_size;
+
     TMTPKType pk_type = TMTPKType::UNSPECIFIED;
     // an internal increasing version for `DecodingStorageSchemaSnapshot`, has no relation with the table schema version
     Int64 decoding_schema_version;
@@ -74,6 +76,7 @@ struct DecodingStorageSchemaSnapshot
         : column_defines{std::move(column_defines_)}
         , pk_is_handle{table_info_.pk_is_handle}
         , is_common_handle{table_info_.is_common_handle}
+        , rowkey_column_size{table_info_}
         , decoding_schema_version{decoding_schema_version_}
     {
         std::unordered_map<ColumnID, size_t> column_lut;

@@ -89,6 +89,11 @@ public:
 
     PageIds ingestIds() const;
 
+    /**
+     * Get the range of handle of each outputted DTFile.
+     */
+    RowKeyRanges & ingestFileRanges() const;
+
     // Try to cleanup the files in `ingest_files` quickly.
     void cancel();
 
@@ -110,6 +115,7 @@ private:
     std::unique_ptr<DMFileBlockOutputStream> dt_stream;
 
     std::vector<DMFilePtr> ingest_files;
+    std::vector<RowKeyRange> ingest_files_range;
 
     /**
      * How many rows has been committed to the current DTFile.

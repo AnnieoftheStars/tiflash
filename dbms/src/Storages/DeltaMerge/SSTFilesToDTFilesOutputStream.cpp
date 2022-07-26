@@ -139,6 +139,7 @@ bool SSTFilesToDTFilesOutputStream::newDTFileStream()
     dt_stream = std::make_unique<DMFileBlockOutputStream>(tmt.getContext(), dt_file, *(schema_snap->column_defines), flags);
     dt_stream->writePrefix();
     ingest_files.emplace_back(dt_file);
+    ingest_files_range.emplace_back(RowKeyRange::newAll(schema_snap->is_common_handle, /* TODO:row key size */ 1));
 
     committed_rows_this_dt_file = 0;
     committed_bytes_this_dt_file = 0;

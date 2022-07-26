@@ -368,6 +368,7 @@ struct TableInfo
     bool pk_is_handle = false;
     /// when is_common_handle = true, it means this table is a clustered index table
     bool is_common_handle = false;
+    size_t rowkey_column_size = 1;
     String comment;
     Timestamp update_timestamp = 0;
     bool is_partition_table = false;
